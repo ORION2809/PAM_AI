@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: pam-ai
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm ci && npm rebuild better-sqlite3 && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_BASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: PAMAI_SESSION_TOKEN_SECRET
+        sync: false
+      - key: PAMAI_DATA_DIR
+        value: /var/data/pamai
+      - key: PAMAI_MOCK_PEGA_CALLBACKS
+        value: "true"
+      - key: OPENAI_REASONING_MODELS
+        value: gpt-5.4-mini,gpt-4o-mini
+      - key: ELEVENLABS_STT_MODEL
+        value: scribe_v2
+      - key: ELEVENLABS_TTS_MODEL
+        value: eleven_multilingual_v2
+      - key: ELEVENLABS_DEFAULT_VOICE_ID
+        value: JBFqnCBsd6RMkjVDRZzb
+      - key: ELEVENLABS_LANGUAGE
+        value: en
+    disk:
+      name: pamai-data
+      mountPath: /var/data
+      sizeGB: 1

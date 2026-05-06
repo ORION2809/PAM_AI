@@ -1,0 +1,120 @@
+
+
+State	Energy direction	Brightness	Motion style
+User speaking	Outside → inside	Medium	Reactive, waveform-driven
+Agent speaking	Inside → outside	High	Smooth, authoritative
+Thinking	Circular/internal	Medium-high	Rotating, scanning
+Idle	Minimal	Low	Slow breathing
+Error/escalation	Broken/alert pulses	Red/orange accent	Sharp, irregular
+
+4. Detailed behavior by state
+Idle / Standing by
+
+Use this when no one is talking.
+
+- slow breathing glow
+- very subtle vertical floating movement
+- faint outer rings
+- low particle activity
+- status: STANDING BY
+
+The orb should feel alive, but not busy.
+
+Listening
+
+Use this when the mic is open but the user is not yet speaking.
+
+- outer ring slowly scans
+- small dots orbit around the orb
+- microphone waveform waits at low amplitude
+- status: LISTENING
+
+This tells the user: “I am ready.”
+
+User speaking
+
+Use this when voice activity detection detects the customer speaking.
+
+- outer rings pulse based on input volume
+- waveform bars react to the microphone stream
+- particles move inward
+- orb core remains calm
+- status: CUSTOMER SPEAKING
+
+Do not make the orb too bright here. The customer is the source, not the orb.
+
+Thinking / reasoning
+
+Use this after the user finishes speaking and the model is deciding what to ask or do.
+
+- inner rings rotate faster
+- scanner arc sweeps across the orb
+- particles circulate around the core
+- core glow tightens into a focused point
+- status: ANALYZING ISSUE
+
+This is where it should look like Jarvis is “processing.”
+
+For example, after the user says:
+
+“The internet works in the hall but not in the bedroom.”
+
+The orb can show:
+
+ANALYZING SIGNAL COVERAGE...
+CHECKING CUSTOMER PLAN...
+IDENTIFYING NEXT QUESTION...
+Agent speaking
+
+Use this when TTS audio is playing.
+
+- orb core becomes bright
+- waveform halo expands outward
+- outer rings rotate smoothly
+- small radial light beams pulse from center
+- status: AGENT SPEAKING
+
+This is the hero state. It should look premium.
+
+Confirmation
+
+Use this when the agent asks whether the issue is resolved.
+
+- orb slows down
+- two subtle action rings appear
+- color becomes balanced cyan/green
+- status: WAITING FOR CONFIRMATION
+
+Example:
+
+“Is your WiFi working properly now?”
+
+The orb should become calmer and more focused.
+
+Case closed
+
+When the customer says yes:
+
+- orb flashes soft green/cyan
+- rings align into a clean circle
+- particles settle
+- status: CASE CLOSED
+
+This should feel satisfying, not overly animated.
+
+Case open / escalation
+
+When the issue is unresolved:
+
+- orb shows amber/orange accent
+- scanning ring becomes more visible
+- small alert pulse appears
+- status: CASE OPENED
+
+For serious network outages:
+
+- add red/amber edge glow
+- show ticket ID
+- show escalation state
+
+But keep it enterprise-grade. Do not make it look like a gaming damage alert.
