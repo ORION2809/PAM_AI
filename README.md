@@ -86,7 +86,7 @@ npm run typecheck
 
 ## Render Deploy
 
-This repository includes `render.yaml` for a single Render web service with a persistent disk.
+This repository includes `render.yaml` for a single Render web service.
 
 Recommended Render configuration:
 
@@ -94,6 +94,12 @@ Recommended Render configuration:
 - Build command: `npm ci && npm run build`
 - Start command: `npm run start`
 - Health check path: `/api/health`
+- Default blueprint plan: `free`
+
+The free deployment keeps the demo workflow working, but storage is ephemeral across restarts and redeploys.
+
+If you later upgrade to a paid Render instance with a disk, use:
+
 - Persistent disk mount: `/var/data`
 - `PAMAI_DATA_DIR=/var/data/pamai`
 
