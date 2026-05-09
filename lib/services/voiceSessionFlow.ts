@@ -218,6 +218,39 @@ function buildDecisionSummary(result: ClassificationResult, explanation: string)
   }
 }
 
+function buildSubmissionConfirmationStatement(result: ClassificationResult): string {
+  switch (result.userResponse) {
+    case 'NOT_DUPLICATE':
+      return 'You are confirming these are separate valid expenses.'
+    case 'DUPLICATE_CONFIRMED':
+      return 'You are confirming these are duplicate documents, so you can reupload the corrected documents without the duplicates.'
+    case 'PARTIAL_DUPLICATE':
+      return 'You are confirming some documents are duplicates and some are valid.'
+    case 'REUPLOAD_REQUIRED':
+      return 'You are confirming that a corrected upload is required.'
+    case 'UNCLEAR_RESPONSE':
+      return 'You are confirming this result needs manual review.'
+  }
+}
+
+function isStandaloneResolutionAnswer(text: string): boolean {
+  return /^(yes|yeah|yep|resolved|fixed|working now|done|no|not yet|still not|unresolved|not working|issue persists)[.!?]*$/i.test(
+    text.trim()
+  )
+}
+
+function extractCompletionExplanation(userTexts: string[]): string {
+  const explanation = [...userTexts]
+    .reverse()
+    .find((text) => {
+      const trimmedText = text.trim()
+
+      return trimmedText.length > 0 && !isStandaloneResolutionAnswer(trimmedText)
+    })
+
+  return explanation ?? ''
+}
+
 function buildCompletion(input: {
   session: VoiceSessionRecord
   classification: ClassificationResult
@@ -336,18 +369,9 @@ export function processVoiceSessionTurn(input: {
       }
 
       if (hasDetailedExplanation(trimmedText)) {
-        const summaryLabel =
-          classification.userResponse === 'NOT_DUPLICATE'
-            ? 'separate valid expenses'
-            : classification.userResponse === 'DUPLICATE_CONFIRMED'
-              ? 'duplicate documents'
-              : classification.userResponse === 'REUPLOAD_REQUIRED'
-                ? 'reupload required'
-                : 'partially duplicate documents'
-
         return withAssistantReply({
           session: sessionWithUserMessage,
-          assistantText: `Understood. You are confirming these are ${summaryLabel}. Should I send this clarification back to the expense review team?`,
+          assistantText: `Understood. ${buildSubmissionConfirmationStatement(classification)} Should I send this clarification back to the expense review team?`,
           now: input.now,
           nextState: 'CONFIRM_FINAL_ANSWER'
         })
@@ -377,7 +401,7 @@ export function processVoiceSessionTurn(input: {
           classification.userResponse === 'NOT_DUPLICATE'
             ? 'Thank you. You are confirming these should be marked as separate valid expenses. Should I send this clarification back to the expense review team?'
             : classification.userResponse === 'DUPLICATE_CONFIRMED'
-              ? 'Thank you. You are confirming these should be marked as duplicate documents. Should I send this clarification back to the expense review team?'
+              ? 'Thank you. You are confirming these should be marked as duplicate documents, and you can reupload the corrected documents without the duplicates. Should I send this clarification back to the expense review team?'
               : classification.userResponse === 'REUPLOAD_REQUIRED'
                 ? 'Thank you. You are confirming that a corrected upload is required. Should I send this clarification back to the expense review team?'
                 : 'Thank you. You are confirming this result needs manual review. Should I send this clarification back to the expense review team?',
@@ -398,7 +422,7 @@ export function processVoiceSessionTurn(input: {
       }
 
       const previousUserTexts = findPreviousUserTexts(sessionWithUserMessage, 3)
-      const explanation = previousUserTexts.length > 1 ? previousUserTexts[1] ?? previousUserTexts[0] : previousUserTexts[0] ?? ''
+      const explanation = extractCompletionExplanation(previousUserTexts)
       const classificationText = previousUserTexts.find((text) => classifyUserResponse(text).userResponse !== 'UNCLEAR_RESPONSE') ?? explanation
       const classification = classifyUserResponse(classificationText)
       const completedSession: VoiceSessionRecord = {

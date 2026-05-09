@@ -173,4 +173,39 @@ describe('voiceSessionFlow', () => {
     expect(result.session.sessionState).toBe('FOLLOW_UP_QUESTION')
     expect(result.assistantText).toContain('actual duplicate')
   })
+
+  it('tells the user to reupload corrected documents when duplicates are confirmed', () => {
+    const startedSession = startVoiceSession({
+      session: createSession(),
+      now: '2026-05-06T10:01:00.000Z'
+    }).session
+
+    const clarificationResult = processVoiceSessionTurn({
+      session: startedSession,
+      userText: 'Yes, I uploaded the same receipt twice by mistake and will remove the duplicate before uploading again.',
+      inputMode: 'voice',
+      now: '2026-05-06T10:02:00.000Z'
+    })
+
+    expect(clarificationResult.session.sessionState).toBe('CONFIRM_FINAL_ANSWER')
+    expect(clarificationResult.assistantText).toContain('duplicate documents')
+    expect(clarificationResult.assistantText).toContain('reupload the corrected documents')
+
+    const completionResult = processVoiceSessionTurn({
+      session: clarificationResult.session,
+      userText: 'yes',
+      inputMode: 'voice',
+      now: '2026-05-06T10:03:00.000Z',
+      voiceModel: 'gpt-4o-mini-tts',
+      reasoningModel: 'gpt-5.4-mini'
+    })
+
+    expect(completionResult.session.sessionState).toBe('COMPLETED')
+    expect(completionResult.completion?.userDecision.decisionType).toBe('DUPLICATE_CONFIRMED')
+    expect(completionResult.completion?.userDecision.requiresReupload).toBe(true)
+    expect(completionResult.completion?.userDecision.userExplanation).toBe(
+      'Yes, I uploaded the same receipt twice by mistake and will remove the duplicate before uploading again.'
+    )
+    expect(completionResult.completion?.agentSummary.recommendedNextAction).toBe('ROUTE_TO_REUPLOAD_DOCUMENTS')
+  })
 })

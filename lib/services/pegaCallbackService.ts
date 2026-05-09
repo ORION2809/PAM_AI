@@ -83,7 +83,7 @@ export function buildPegaVoiceAiResumePayload(completion: VoiceSessionCompletion
   return {
     EmailResponseBody: completion.userDecision.userExplanation.trim() || completion.agentSummary.summary,
     pyID: completion.caseId,
-    IsUserWantToReupload: completion.userDecision.decisionType === 'REUPLOAD_REQUIRED'
+    IsUserWantToReupload: completion.userDecision.requiresReupload
   }
 }
 

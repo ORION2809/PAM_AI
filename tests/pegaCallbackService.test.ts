@@ -138,6 +138,21 @@ describe('pegaCallbackService', () => {
         })
       ).IsUserWantToReupload
     ).toBe(true)
+
+    expect(
+      buildPegaVoiceAiResumePayload(
+        createCompletion({
+          duplicateConfirmed: 'YES',
+          decisionType: 'DUPLICATE_CONFIRMED',
+          requiresReupload: true,
+          userExplanation: 'Yes, I uploaded the same receipt twice by mistake.'
+        })
+      )
+    ).toEqual({
+      EmailResponseBody: 'Yes, I uploaded the same receipt twice by mistake.',
+      pyID: 'E-9020',
+      IsUserWantToReupload: true
+    })
   })
 
   it('posts the Pega resume payload with OAuth client-credentials auth', async () => {
