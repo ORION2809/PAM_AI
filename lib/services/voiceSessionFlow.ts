@@ -234,9 +234,14 @@ function buildSubmissionConfirmationStatement(result: ClassificationResult): str
 }
 
 function isStandaloneResolutionAnswer(text: string): boolean {
-  return /^(yes|yeah|yep|resolved|fixed|working now|done|no|not yet|still not|unresolved|not working|issue persists)[.!?]*$/i.test(
-    text.trim()
+  const normalizedText = text.trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ')
+
+  return /^(yes|yeah|yep|resolved|fixed|working now|done)(?: please| pls| okay| ok| sure| thanks| thank you| go ahead| proceed| send it| send this| submit it| submit this)*$/i.test(
+    normalizedText
   )
+    || /^(no|not yet|still not|unresolved|not working|issue persists)(?: please| pls| okay| ok| thanks| thank you)*$/i.test(
+      normalizedText
+    )
 }
 
 function extractCompletionExplanation(userTexts: string[]): string {

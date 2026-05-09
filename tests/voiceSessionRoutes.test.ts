@@ -44,6 +44,7 @@ import { GET as getCallbackStatusRoute } from '@/app/api/v1/voice-sessions/[sess
 import { POST as startVoiceSessionRoute } from '@/app/api/v1/voice-sessions/[sessionId]/start/route'
 import { POST as textTurnRoute } from '@/app/api/v1/voice-sessions/[sessionId]/turn/text/route'
 import { createDemoVoiceSessionRequest } from '@/lib/fixtures/demoVoiceSession'
+import { deliverPegaCallback } from '@/lib/services/pegaCallbackService'
 
 const globalStore = globalThis as typeof globalThis & {
   __voiceCsrRateLimitStore?: Map<string, { count: number; resetAt: number }>
@@ -85,6 +86,7 @@ describe('voice session routes', () => {
   beforeEach(() => {
     globalStore.__voiceCsrRateLimitStore?.clear()
     process.env.APP_BASE_URL = 'https://pam-ai-4gv6.onrender.com'
+    vi.mocked(deliverPegaCallback).mockClear()
     resetServerEnvCache()
   })
 
@@ -278,5 +280,83 @@ describe('voice session routes', () => {
 
     expect(callbackBody.callbackStatus.callbackStatus).toBe('DELIVERED')
     expect(callbackBody.callbackStatus.httpStatusCode).toBe(202)
+  })
+
+  it('keeps the original not-duplicate explanation when the user confirms with yes please', async () => {
+    const created = await createSession('10.2.1.1')
+
+    await startVoiceSessionRoute(
+      new NextRequest(`http://localhost/api/v1/voice-sessions/${created.sessionId}/start`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-for': '10.2.1.2',
+          'x-session-token': created.token
+        },
+        body: JSON.stringify({})
+      }),
+      {
+        params: Promise.resolve({ sessionId: created.sessionId })
+      }
+    )
+
+    const explanation =
+      'No, these are not duplicate receipts because one was from home to office and the other was from office to a client meeting.'
+
+    const clarificationResponse = await textTurnRoute(
+      new NextRequest(`http://localhost/api/v1/voice-sessions/${created.sessionId}/turn/text`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-for': '10.2.1.3',
+          'x-session-token': created.token
+        },
+        body: JSON.stringify({ text: explanation })
+      }),
+      {
+        params: Promise.resolve({ sessionId: created.sessionId })
+      }
+    )
+
+    expect(clarificationResponse.status).toBe(200)
+
+    const completionResponse = await textTurnRoute(
+      new NextRequest(`http://localhost/api/v1/voice-sessions/${created.sessionId}/turn/text`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-for': '10.2.1.4',
+          'x-session-token': created.token
+        },
+        body: JSON.stringify({ text: 'yes, please' })
+      }),
+      {
+        params: Promise.resolve({ sessionId: created.sessionId })
+      }
+    )
+
+    expect(completionResponse.status).toBe(200)
+
+    const completed = (await completionResponse.json()) as {
+      completion: {
+        userDecision: {
+          decisionType: string
+          userExplanation: string
+          requiresReupload: boolean
+        }
+      }
+      callbackStatus: { callbackStatus: string }
+    }
+
+    expect(completed.completion.userDecision.decisionType).toBe('SEPARATE_VALID_EXPENSES')
+    expect(completed.completion.userDecision.userExplanation).toBe(explanation)
+    expect(completed.completion.userDecision.requiresReupload).toBe(false)
+    expect(completed.callbackStatus.callbackStatus).toBe('DELIVERED')
+    expect(vi.mocked(deliverPegaCallback)).toHaveBeenCalledTimes(1)
+
+    const callbackInput = vi.mocked(deliverPegaCallback).mock.calls[0]?.[0]
+
+    expect(callbackInput?.completion.userDecision.userExplanation).toBe(explanation)
+    expect(callbackInput?.completion.userDecision.requiresReupload).toBe(false)
   })
 })

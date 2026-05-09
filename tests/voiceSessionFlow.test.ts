@@ -144,7 +144,7 @@ describe('voiceSessionFlow', () => {
 
     const completionResult = processVoiceSessionTurn({
       session: clarificationResult.session,
-      userText: 'yes',
+      userText: 'yes, please',
       inputMode: 'voice',
       now: '2026-05-06T10:03:00.000Z',
       voiceModel: 'gpt-4o-mini-tts',
@@ -153,6 +153,9 @@ describe('voiceSessionFlow', () => {
 
     expect(completionResult.session.sessionState).toBe('COMPLETED')
     expect(completionResult.completion?.userDecision.decisionType).toBe('SEPARATE_VALID_EXPENSES')
+    expect(completionResult.completion?.userDecision.userExplanation).toBe(
+      'They are separate rides. One was from home to office and the other was from office to a client meeting.'
+    )
     expect(completionResult.completion?.duplicateGroupsReviewed[0]?.userResponse).toBe('NOT_DUPLICATE')
     expect(completionResult.completion?.agentSummary.recommendedNextAction).toBe('PROCEED_TO_MANAGER_APPROVAL')
   })
@@ -193,7 +196,7 @@ describe('voiceSessionFlow', () => {
 
     const completionResult = processVoiceSessionTurn({
       session: clarificationResult.session,
-      userText: 'yes',
+      userText: 'yes please',
       inputMode: 'voice',
       now: '2026-05-06T10:03:00.000Z',
       voiceModel: 'gpt-4o-mini-tts',
