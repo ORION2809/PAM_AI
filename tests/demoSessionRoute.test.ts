@@ -117,9 +117,13 @@ describe('demo session route', () => {
 
     const body = (await response.json()) as {
       sessionId: string
+      caseId: string
+      caseReference: string
       conversationUrl: string
     }
 
+    expect(body.caseId).toBe('E-7036')
+    expect(body.caseReference).toBe('E-7036')
     expect(body.conversationUrl).toMatch(/^http:\/\/localhost\/voice\/session\//)
 
     const token = readTokenFromConversationUrl(body.conversationUrl)
@@ -142,6 +146,42 @@ describe('demo session route', () => {
 
     expect(sessionBody.session.caseId).toBe('E-7036')
     expect(sessionBody.session.caseReference).toBe('E-7036')
+  })
+
+  it('creates a session when the URL uses the short numeric case id from the email link', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'pega-access-token', token_type: 'bearer', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...pegaCase, pyID: 'E-9044' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+
+    const response = await createDemoSessionRoute(
+      new NextRequest('http://localhost/api/demo/session?caseId=44', {
+        method: 'POST',
+        headers: {
+          'x-forwarded-for': '10.3.0.6'
+        }
+      })
+    )
+
+    expect(response.status).toBe(201)
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('E-9044')
+
+    const body = (await response.json()) as {
+      caseId: string
+      caseReference: string
+    }
+
+    expect(body.caseId).toBe('E-9044')
+    expect(body.caseReference).toBe('E-9044')
   })
 
   it('returns 400 when the case id in the URL is invalid', async () => {

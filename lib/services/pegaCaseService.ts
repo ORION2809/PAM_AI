@@ -24,6 +24,16 @@ const pegaExpenseDocumentSchema = z
   })
   .passthrough()
 
+const pegaExpenseRecordsSchema = z.preprocess(
+  (value) => (value == null ? [] : value),
+  z.array(pegaExpenseRecordSchema)
+)
+
+const pegaExpenseDocumentsSchema = z.preprocess(
+  (value) => (value == null ? [] : value),
+  z.array(pegaExpenseDocumentSchema)
+)
+
 const pegaCaseSchema = z
   .object({
     pyID: z.string().min(1),
@@ -35,13 +45,14 @@ const pegaCaseSchema = z
     BusinessPurpose: z.string().min(1).optional(),
     DuplicateExpensesMessageForEmail: z.string().nullable().optional(),
     EmailResponseBody: z.string().nullable().optional(),
+    pyAIAgentResponse: z.string().nullable().optional(),
     ExpenseReportName: z.string().min(1).optional(),
     pxCreateOpName: z.string().min(1).optional(),
     pyOrigUserID: z.string().min(1).optional(),
     pxCreateOperator: z.string().min(1).optional(),
     pzEmailList: z.array(z.string().min(1)).optional(),
-    ExpenseRecords: z.array(pegaExpenseRecordSchema).min(1),
-    ExpenseDocuments: z.array(pegaExpenseDocumentSchema).optional().default([])
+    ExpenseRecords: pegaExpenseRecordsSchema,
+    ExpenseDocuments: pegaExpenseDocumentsSchema.optional().default([])
   })
   .passthrough()
 
@@ -80,6 +91,11 @@ function extractAuditPromptFromEmailBody(emailResponseBody: string | null | unde
   return match ? normalizeWhitespace(match[0]) : null
 }
 
+function readStringField(source: Record<string, unknown> | undefined, key: string): string | null {
+  const value = source?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
 function inferCurrency(pegaCase: PegaCase): string {
   const hintText = [pegaCase.DuplicateExpensesMessageForEmail, pegaCase.EmailResponseBody, pegaCase.ExpenseType]
     .filter(Boolean)
@@ -113,6 +129,15 @@ function extractMerchant(description: string): string {
 function buildFallbackCaseContext(pegaCase: PegaCase): string {
   const firstExpense = pegaCase.ExpenseRecords[0]
   const secondExpense = pegaCase.ExpenseRecords[1]
+
+  if (!firstExpense) {
+    const documentCount = pegaCase.ExpenseDocuments.length
+    const documentText =
+      documentCount === 1 ? '1 uploaded expense document' : `${documentCount || 'no'} uploaded expense documents`
+
+    return `Pega case ${pegaCase.pyID} is currently at ${pegaCase.pxCurrentStageLabel ?? pegaCase.pyStatusWork ?? 'expense review'} with ${documentText}. Please confirm whether the submitted document is a duplicate, a separate valid expense, or whether a corrected upload is needed.`
+  }
+
   const amount = firstExpense?.ExpenseAmount ?? pegaCase.ExpenseAmount ?? 0
   const currency = inferCurrency(pegaCase)
   const formattedAmount = currency === 'USD' ? `$${amount.toFixed(2)}` : `${currency} ${amount.toFixed(2)}`
@@ -155,6 +180,74 @@ export function extractPegaCaseContextText(input: unknown): string {
   }
 
   return buildFallbackCaseContext(pegaCase)
+}
+
+export function resolveCaseIdCandidates(caseId: string): string[] {
+  const trimmedCaseId = caseId.trim()
+  const candidates: string[] = []
+
+  function addCandidate(candidate: string): void {
+    if (candidate && !candidates.includes(candidate)) {
+      candidates.push(candidate)
+    }
+  }
+
+  if (/^\d+$/.test(trimmedCaseId)) {
+    if (trimmedCaseId.length <= 2) {
+      addCandidate(`E-90${trimmedCaseId.padStart(2, '0')}`)
+    }
+
+    addCandidate(`E-${trimmedCaseId}`)
+  }
+
+  addCandidate(trimmedCaseId)
+
+  return candidates
+}
+
+function mapPegaExpenseRecords(pegaCase: PegaCase, currency: string) {
+  if (pegaCase.ExpenseRecords.length > 0) {
+    return pegaCase.ExpenseRecords.map((record, index) => {
+      const document = pegaCase.ExpenseDocuments[index]
+
+      return {
+        expenseRecordId: record.ExpenseID,
+        documentId:
+          document?.pyAttachmentLink ?? readStringField(document, 'pzInsKey') ?? document?.pyAttachName ?? record.ExpenseID,
+        fileName:
+          document?.pyAttachName ?? document?.pyFileName ?? `${record.ExpenseID}.${document?.pyFileExtension ?? 'pdf'}`,
+        expenseDate: record.ExpenseDate,
+        amount: record.ExpenseAmount,
+        currency,
+        merchant: extractMerchant(record.ExpenseDescription),
+        documentType: record.ExpenseType
+      }
+    })
+  }
+
+  const fallbackDocuments = pegaCase.ExpenseDocuments.length > 0 ? pegaCase.ExpenseDocuments : [undefined]
+
+  return fallbackDocuments.map((document, index) => {
+    const fallbackId = `CASE-${pegaCase.pyID}-DOCUMENT-${index + 1}`
+    const documentId =
+      document?.pyAttachmentLink ?? readStringField(document, 'pzInsKey') ?? document?.pyAttachName ?? fallbackId
+    const fileName =
+      document?.pyAttachName ??
+      (document?.pyFileName
+        ? `${document.pyFileName}.${document.pyFileExtension ?? 'pdf'}`
+        : `expense-document-${index + 1}.pdf`)
+
+    return {
+      expenseRecordId: fallbackId,
+      documentId,
+      fileName,
+      expenseDate: readStringField(pegaCase, 'pxCreateDateTime') ?? new Date().toISOString(),
+      amount: pegaCase.ExpenseAmount ?? 0,
+      currency,
+      merchant: pegaCase.ExpenseReportName ?? pegaCase.pyLabel ?? 'Uploaded expense document',
+      documentType: pegaCase.ExpenseType ?? pegaCase.pyLabel ?? 'Expense Document'
+    }
+  })
 }
 
 export function mapPegaCaseToVoiceSessionRequest(input: {
@@ -200,20 +293,7 @@ export function mapPegaCaseToVoiceSessionRequest(input: {
         duplicateGroupId: `DUP-GRP-${pegaCase.pyID}`,
         reason: caseContextText,
         confidence: 0.9,
-        expenseRecords: pegaCase.ExpenseRecords.map((record, index) => {
-          const document = pegaCase.ExpenseDocuments[index]
-
-          return {
-            expenseRecordId: record.ExpenseID,
-            documentId: document?.pyAttachmentLink ?? record.ExpenseID,
-            fileName: document?.pyAttachName ?? document?.pyFileName ?? `${record.ExpenseID}.${document?.pyFileExtension ?? 'pdf'}`,
-            expenseDate: record.ExpenseDate,
-            amount: record.ExpenseAmount,
-            currency,
-            merchant: extractMerchant(record.ExpenseDescription),
-            documentType: record.ExpenseType
-          }
-        })
+        expenseRecords: mapPegaExpenseRecords(pegaCase, currency)
       }
     ],
     callback: {
@@ -304,13 +384,24 @@ export async function createVoiceSessionRequestFromPegaCase(input: {
 }): Promise<CreateVoiceSessionRequest> {
   const env = getServerEnv()
   const accessToken = await fetchPegaAccessToken()
-  const pegaCase = await fetchPegaCase(input.caseId, accessToken)
+  const caseIdCandidates = resolveCaseIdCandidates(input.caseId)
+  let lastError: unknown = null
 
-  return mapPegaCaseToVoiceSessionRequest({
-    pegaCase,
-    requestedCaseId: input.caseId,
-    callbackUrl: env.pamaiPegaCallbackUrl,
-    now: input.now,
-    defaultCustomerMobile: env.pamaiDefaultCustomerMobile
-  })
+  for (const caseIdCandidate of caseIdCandidates) {
+    try {
+      const pegaCase = await fetchPegaCase(caseIdCandidate, accessToken)
+
+      return mapPegaCaseToVoiceSessionRequest({
+        pegaCase,
+        requestedCaseId: caseIdCandidate,
+        callbackUrl: env.pamaiPegaCallbackUrl,
+        now: input.now,
+        defaultCustomerMobile: env.pamaiDefaultCustomerMobile
+      })
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new PegaCaseServiceError(404, `Pega case ${input.caseId} was not found.`)
 }

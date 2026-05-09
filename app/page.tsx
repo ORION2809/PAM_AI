@@ -6,12 +6,12 @@ interface HomePageProps {
   }>
 }
 
-function normalizeCaseId(caseId: string | string[] | undefined): string {
+function normalizeCaseId(caseId: string | string[] | undefined): string | null {
   if (Array.isArray(caseId)) {
-    return caseId[0]?.trim() || 'E-7036'
+    return caseId[0]?.trim() || null
   }
 
-  return caseId?.trim() || 'E-7036'
+  return caseId?.trim() || null
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {

@@ -91,6 +91,8 @@ async function finalizeCompletion(completion: VoiceSessionCompletion): Promise<P
 export function createVoiceSession(input: { request: unknown; now?: string; baseUrl?: string }): {
   sessionId: string
   status: 'READY'
+  caseId: string
+  caseReference: string
   conversationUrl: string
   expiresAt: string
 } {
@@ -114,6 +116,8 @@ export function createVoiceSession(input: { request: unknown; now?: string; base
   return {
     sessionId,
     status: 'READY',
+    caseId: request.caseId,
+    caseReference: request.caseReference,
     conversationUrl: buildConversationUrl(sessionId, token, input.baseUrl),
     expiresAt: request.expiresAt
   }

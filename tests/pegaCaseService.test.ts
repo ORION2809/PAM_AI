@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { createVoiceSessionRequestSchema } from '@/lib/schemas/voiceSession'
-import { extractPegaCaseContextText, mapPegaCaseToVoiceSessionRequest } from '@/lib/services/pegaCaseService'
+import {
+  extractPegaCaseContextText,
+  mapPegaCaseToVoiceSessionRequest,
+  resolveCaseIdCandidates
+} from '@/lib/services/pegaCaseService'
 
 const basePegaCase = {
   pyID: 'E-7036',
@@ -94,6 +98,52 @@ describe('pegaCaseService', () => {
       fileName: 'hotel2.pdf',
       merchant: 'Windsor Court Hotel',
       currency: 'USD'
+    })
+  })
+
+  it('resolves short numeric demo ids to the full Pega case id candidate first', () => {
+    expect(resolveCaseIdCandidates('44')).toEqual(['E-9044', 'E-44', '44'])
+    expect(resolveCaseIdCandidates('7036')).toEqual(['E-7036', '7036'])
+    expect(resolveCaseIdCandidates('E-9044')).toEqual(['E-9044'])
+  })
+
+  it('maps a Pega case with only uploaded documents into a valid voice session request', () => {
+    const mapped = mapPegaCaseToVoiceSessionRequest({
+      pegaCase: {
+        pyID: 'E-9044',
+        pyLabel: 'Expense Processing',
+        pxCurrentStageLabel: 'Duplicate Document Identified',
+        pyStatusWork: 'Pending - Customer Response',
+        ExpenseAmount: 0,
+        pxCreateOpName: 'Avinash',
+        pyOrigUserID: 'Avinash',
+        pzEmailList: ['bandiavinash686@gmail.com'],
+        ExpenseRecords: null,
+        ExpenseDocuments: [
+          {
+            pyAttachmentLink: 'ATTACH-9044',
+            pyAttachName: 'uploaded-expense.pdf',
+            pyFileName: 'uploaded-expense',
+            pyFileExtension: 'pdf'
+          }
+        ]
+      },
+      requestedCaseId: 'E-9044',
+      callbackUrl: 'https://pega.company.com/prweb/api/pamai/v1/duplicate-response',
+      now: '2026-05-08T12:00:00.000Z',
+      expiresInHours: 72,
+      defaultCustomerMobile: '+910000003210'
+    })
+
+    expect(() => createVoiceSessionRequestSchema.parse(mapped)).not.toThrow()
+    expect(mapped.caseId).toBe('E-9044')
+    expect(mapped.customer.fullName).toBe('Avinash')
+    expect(mapped.caseContextText).toContain('Pega case E-9044')
+    expect(mapped.duplicateFindings[0]?.expenseRecords[0]).toMatchObject({
+      expenseRecordId: 'CASE-E-9044-DOCUMENT-1',
+      documentId: 'ATTACH-9044',
+      fileName: 'uploaded-expense.pdf',
+      documentType: 'Expense Processing'
     })
   })
 })

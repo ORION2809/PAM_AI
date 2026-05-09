@@ -4,17 +4,20 @@ import { startTransition, useEffect, useRef, useState } from 'react'
 
 interface LaunchSessionPayload {
   sessionId: string
+  requestedCaseId: string
   caseId: string
+  caseReference: string
   conversationUrl: string
   expiresAt: string
 }
 
 interface PamaiLaunchpadProps {
-  initialCaseId: string
+  initialCaseId: string | null
 }
 
 export function PamaiLaunchpad({ initialCaseId }: PamaiLaunchpadProps) {
-  const currentCaseId = initialCaseId.trim() || 'E-7036'
+  const currentCaseId = initialCaseId?.trim() ?? ''
+  const hasCaseId = currentCaseId.length > 0
   const [isCreating, setIsCreating] = useState<boolean>(false)
   const [errorText, setErrorText] = useState<string>('')
   const [launchPayload, setLaunchPayload] = useState<LaunchSessionPayload | null>(null)
@@ -29,6 +32,11 @@ export function PamaiLaunchpad({ initialCaseId }: PamaiLaunchpadProps) {
   }, [currentCaseId])
 
   async function createPegaSession(): Promise<void> {
+    if (!hasCaseId) {
+      setErrorText('Add a case id to the URL before creating a secure voice session.')
+      return
+    }
+
     const requestId = requestSequenceRef.current + 1
     const requestedCaseId = currentCaseId
 
@@ -41,7 +49,7 @@ export function PamaiLaunchpad({ initialCaseId }: PamaiLaunchpadProps) {
       const response = await fetch(`/api/demo/session?caseId=${encodeURIComponent(requestedCaseId)}`, {
         method: 'POST'
       })
-      const payload = (await response.json()) as Omit<LaunchSessionPayload, 'caseId'> & { error?: string }
+      const payload = (await response.json()) as Omit<LaunchSessionPayload, 'requestedCaseId'> & { error?: string }
 
       if (!response.ok) {
         throw new Error(payload.error ?? 'Could not create the Pega-backed session.')
@@ -51,15 +59,13 @@ export function PamaiLaunchpad({ initialCaseId }: PamaiLaunchpadProps) {
         return
       }
 
-      const nextLaunchPayload = {
-        ...payload,
-        caseId: requestedCaseId
-      }
-
       startTransition(() => {
-        setLaunchPayload(nextLaunchPayload)
+        setLaunchPayload({
+          ...payload,
+          requestedCaseId
+        })
       })
-      window.location.assign(nextLaunchPayload.conversationUrl)
+      window.location.assign(payload.conversationUrl)
     } catch (error) {
       if (requestSequenceRef.current !== requestId) {
         return
@@ -95,12 +101,12 @@ export function PamaiLaunchpad({ initialCaseId }: PamaiLaunchpadProps) {
           <section className="panel hero-panel launch-card">
             <div className="status-band">
               <small>Live Pega case</small>
-              <strong>Launches whichever case id you pass in the URL, for example `?caseId=E-7036`.</strong>
+              <strong>Launches the case id from the URL, for example `/case/E-9044` or `?caseId=E-9044`.</strong>
             </div>
             <div className="quick-stats">
               <div className="stat-card">
-                <span>Pega case</span>
-                <strong>{currentCaseId}</strong>
+                <span>URL case</span>
+                <strong>{hasCaseId ? currentCaseId : 'Required'}</strong>
               </div>
               <div className="stat-card">
                 <span>Context source</span>
@@ -125,22 +131,34 @@ export function PamaiLaunchpad({ initialCaseId }: PamaiLaunchpadProps) {
           <section className="panel control-card launch-card">
             <h2>Open Pega Session</h2>
             <p className="section-copy">
-              Append a case id to the URL such as `?caseId=E-7036`, then launch to create a signed URL under the
-              `v1/voice-sessions` backend and redirect into the secure voice session page.
+              Use a production email link such as `/case/E-9044` or append `?caseId=E-9044`, then launch to create a
+              signed URL under the `v1/voice-sessions` backend and redirect into the secure voice session page.
             </p>
             <div className="launch-actions">
-              <button className="button button--primary button--wide" type="button" onClick={() => void createPegaSession()} disabled={isCreating}>
-                {isCreating ? 'Creating secure session...' : `Create session for ${currentCaseId}`}
+              <button
+                className="button button--primary button--wide"
+                type="button"
+                onClick={() => void createPegaSession()}
+                disabled={isCreating || !hasCaseId}
+              >
+                {isCreating ? 'Creating secure session...' : hasCaseId ? `Create session for ${currentCaseId}` : 'Case id required'}
               </button>
             </div>
             {activeLaunchPayload ? (
               <div className="launch-result">
                 <span>Latest session</span>
                 <strong>{activeLaunchPayload.sessionId}</strong>
+                <p>Resolved Pega case {activeLaunchPayload.caseReference}</p>
                 <p>Expires at {new Date(activeLaunchPayload.expiresAt).toLocaleString()}</p>
               </div>
             ) : null}
             {errorText ? <p className="error-text">{errorText}</p> : null}
+            {!hasCaseId ? (
+              <p className="helper-text">
+                This launchpad intentionally waits for a case id so the email link cannot accidentally open stale
+                customer data.
+              </p>
+            ) : null}
           </section>
         </div>
       </div>
