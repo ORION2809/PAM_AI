@@ -14,6 +14,57 @@ export interface PegaVoiceAiResumePayload {
   IsUserWantToReupload: boolean
 }
 
+function normalizeComparableText(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function isStandaloneConfirmation(text: string): boolean {
+  const normalizedText = text.trim().toLowerCase().replace(/[.,!?]+/g, ' ').replace(/\s+/g, ' ')
+
+  return /^(yes|yeah|yep|resolved|fixed|working now|done)(?: please| pls| okay| ok| sure| thanks| thank you| go ahead| proceed| send it| send this| submit it| submit this)*$/i.test(
+    normalizedText
+  ) || /^(no|not yet|still not|unresolved|not working|issue persists)(?: please| pls| okay| ok| thanks| thank you)*$/i.test(
+    normalizedText
+  )
+}
+
+function extractMeaningfulExplanation(completion: VoiceSessionCompletion): string {
+  const directExplanation = completion.userDecision.userExplanation.trim()
+
+  if (directExplanation && !isStandaloneConfirmation(directExplanation)) {
+    return directExplanation
+  }
+
+  const transcriptExplanation = [...completion.transcript]
+    .reverse()
+    .find((entry) => entry.speaker === 'user' && entry.text.trim().length > 0 && !isStandaloneConfirmation(entry.text))
+
+  return transcriptExplanation?.text.trim() ?? ''
+}
+
+function buildFallbackEmailResponseBody(completion: VoiceSessionCompletion): string {
+  const decisionSummary = completion.userDecision.requiresReupload
+    ? 'User confirmed corrected documents must be reuploaded.'
+    : 'User confirmed the flagged documents are valid and do not require reupload.'
+
+  return decisionSummary
+}
+
+function buildEmailResponseBody(completion: VoiceSessionCompletion): string {
+  const summary = completion.agentSummary.summary.trim()
+  const explanation = extractMeaningfulExplanation(completion)
+
+  if (summary && explanation) {
+    if (normalizeComparableText(summary).includes(normalizeComparableText(explanation))) {
+      return summary
+    }
+
+    return `${summary}\n\nCustomer explanation: ${explanation}`
+  }
+
+  return summary || explanation || buildFallbackEmailResponseBody(completion)
+}
+
 function createCallbackAttemptId(): string {
   return `ATTEMPT-${randomBytes(6).toString('hex')}`
 }
@@ -81,7 +132,7 @@ async function buildCallbackHeaders(input: {
 
 export function buildPegaVoiceAiResumePayload(completion: VoiceSessionCompletion): PegaVoiceAiResumePayload {
   return {
-    EmailResponseBody: completion.userDecision.userExplanation.trim() || completion.agentSummary.summary,
+    EmailResponseBody: buildEmailResponseBody(completion),
     pyID: completion.caseId,
     IsUserWantToReupload: completion.userDecision.requiresReupload
   }

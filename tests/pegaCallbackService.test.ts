@@ -55,7 +55,11 @@ function createRequest(): CreateVoiceSessionRequest {
   }
 }
 
-function createCompletion(overrides: Partial<VoiceSessionCompletion['userDecision']> = {}): VoiceSessionCompletion {
+function createCompletion(overrides: {
+  userDecision?: Partial<VoiceSessionCompletion['userDecision']>
+  agentSummary?: Partial<VoiceSessionCompletion['agentSummary']>
+  transcript?: VoiceSessionCompletion['transcript']
+} = {}): VoiceSessionCompletion {
   return {
     sessionId: 'PAMAI-SESSION-test',
     caseId: 'E-9020',
@@ -71,7 +75,7 @@ function createCompletion(overrides: Partial<VoiceSessionCompletion['userDecisio
       requiresManualReview: false,
       userExplanation: 'Ilakathamafaliya.',
       finalUserConfirmation: true,
-      ...overrides
+      ...overrides.userDecision
     },
     duplicateGroupsReviewed: [
       {
@@ -85,9 +89,10 @@ function createCompletion(overrides: Partial<VoiceSessionCompletion['userDecisio
     agentSummary: {
       summary: 'User clarified the flagged expenses.',
       confidence: 0.88,
-      recommendedNextAction: 'PROCEED_TO_MANAGER_APPROVAL'
+      recommendedNextAction: 'PROCEED_TO_MANAGER_APPROVAL',
+      ...overrides.agentSummary
     },
-    transcript: [],
+    transcript: overrides.transcript ?? [],
     technicalMetadata: {
       voiceModel: 'gpt-4o-mini-tts',
       reasoningModel: 'gpt-5.4-mini',
@@ -123,7 +128,7 @@ describe('pegaCallbackService', () => {
 
   it('maps a completion into the Pega Voice AI resume payload', () => {
     expect(buildPegaVoiceAiResumePayload(createCompletion())).toEqual({
-      EmailResponseBody: 'Ilakathamafaliya.',
+      EmailResponseBody: 'User clarified the flagged expenses.\n\nCustomer explanation: Ilakathamafaliya.',
       pyID: 'E-9020',
       IsUserWantToReupload: false
     })
@@ -131,10 +136,12 @@ describe('pegaCallbackService', () => {
     expect(
       buildPegaVoiceAiResumePayload(
         createCompletion({
-          duplicateConfirmed: 'UNCLEAR',
-          decisionType: 'REUPLOAD_REQUIRED',
-          requiresReupload: true,
-          userExplanation: 'I need to reupload the correct document.'
+          userDecision: {
+            duplicateConfirmed: 'UNCLEAR',
+            decisionType: 'REUPLOAD_REQUIRED',
+            requiresReupload: true,
+            userExplanation: 'I need to reupload the correct document.'
+          }
         })
       ).IsUserWantToReupload
     ).toBe(true)
@@ -142,17 +149,89 @@ describe('pegaCallbackService', () => {
     expect(
       buildPegaVoiceAiResumePayload(
         createCompletion({
-          duplicateConfirmed: 'YES',
-          decisionType: 'DUPLICATE_CONFIRMED',
-          requiresReupload: true,
-          userExplanation: 'Yes, I uploaded the same receipt twice by mistake.'
+          userDecision: {
+            duplicateConfirmed: 'YES',
+            decisionType: 'DUPLICATE_CONFIRMED',
+            requiresReupload: true,
+            userExplanation: 'Yes, I uploaded the same receipt twice by mistake.'
+          },
+          agentSummary: {
+            summary: 'User confirmed the flagged documents are duplicates and asked to remove the duplicate receipt before uploading again.',
+            recommendedNextAction: 'ROUTE_TO_REUPLOAD_DOCUMENTS'
+          }
         })
       )
     ).toEqual({
-      EmailResponseBody: 'Yes, I uploaded the same receipt twice by mistake.',
+      EmailResponseBody:
+        'User confirmed the flagged documents are duplicates and asked to remove the duplicate receipt before uploading again.\n\nCustomer explanation: Yes, I uploaded the same receipt twice by mistake.',
       pyID: 'E-9020',
       IsUserWantToReupload: true
     })
+  })
+
+  it('uses the transcript-backed explanation when the stored explanation is only a final confirmation', () => {
+    const payload = buildPegaVoiceAiResumePayload(
+      createCompletion({
+        userDecision: {
+          userExplanation: 'yes, please'
+        },
+        agentSummary: {
+          summary: 'User confirmed the flagged documents are separate valid expenses after explaining the rides were different.',
+          recommendedNextAction: 'PROCEED_TO_MANAGER_APPROVAL'
+        },
+        transcript: [
+          {
+            speaker: 'agent',
+            text: 'Are these duplicates, or separate valid expenses?',
+            timestamp: '2026-05-09T10:30:00.000Z',
+            inputMode: 'text'
+          },
+          {
+            speaker: 'user',
+            text: 'No, these are not duplicate receipts because one was from home to office and the other was from office to a client meeting.',
+            timestamp: '2026-05-09T10:30:20.000Z',
+            inputMode: 'text'
+          },
+          {
+            speaker: 'user',
+            text: 'yes, please',
+            timestamp: '2026-05-09T10:30:40.000Z',
+            inputMode: 'text'
+          }
+        ]
+      })
+    )
+
+    expect(payload.EmailResponseBody).toBe(
+      'User confirmed the flagged documents are separate valid expenses after explaining the rides were different.\n\nCustomer explanation: No, these are not duplicate receipts because one was from home to office and the other was from office to a client meeting.'
+    )
+    expect(payload.EmailResponseBody).not.toContain('Customer explanation: yes, please')
+    expect(payload.IsUserWantToReupload).toBe(false)
+  })
+
+  it('falls back to a decision summary when no meaningful explanation is available', () => {
+    const payload = buildPegaVoiceAiResumePayload(
+      createCompletion({
+        userDecision: {
+          requiresReupload: true,
+          userExplanation: 'yes'
+        },
+        agentSummary: {
+          summary: ''
+        },
+        transcript: [
+          {
+            speaker: 'user',
+            text: 'yes, please',
+            timestamp: '2026-05-09T10:31:00.000Z',
+            inputMode: 'text'
+          }
+        ]
+      })
+    )
+
+    expect(payload.EmailResponseBody).toBe('User confirmed corrected documents must be reuploaded.')
+    expect(payload.IsUserWantToReupload).toBe(true)
   })
 
   it('posts the Pega resume payload with OAuth client-credentials auth', async () => {
@@ -190,7 +269,7 @@ describe('pegaCallbackService', () => {
       'x-pamai-idempotency-key': 'PAMAI-SESSION-test-COMPLETION'
     })
     expect(JSON.parse(callbackInit?.body as string)).toEqual({
-      EmailResponseBody: 'Ilakathamafaliya.',
+      EmailResponseBody: 'User clarified the flagged expenses.\n\nCustomer explanation: Ilakathamafaliya.',
       pyID: 'E-9020',
       IsUserWantToReupload: false
     })
