@@ -15,19 +15,33 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
-      - key: ELEVENLABS_API_KEY
-        sync: false
       - key: PAMAI_SESSION_TOKEN_SECRET
         sync: false
       - key: PAMAI_MOCK_PEGA_CALLBACKS
-        value: "true"
+        value: "false"
+      - key: PEGA_CLIENT_ID
+        sync: false
+      - key: PEGA_CLIENT_SECRET
+        sync: false
+      - key: PEGA_TOKEN_ENDPOINT
+        value: https://bluevoir-251.pegademo.com/prweb/PRRestService/oauth2/v1/token
+      - key: PEGA_EXPENSE_DATA_VIEW_URL
+        value: https://bluevoir-251.pegademo.com/prweb/api/application/v2/data_views/D_ExpenseProcessing
+      - key: PAMAI_DEFAULT_CASE_ID
+        value: E-7036
+      - key: PAMAI_DEFAULT_CUSTOMER_MOBILE
+        value: "+910000003210"
+      - key: PAMAI_PEGA_CALLBACK_URL
+        value: https://bluevoir-251.pegademo.com/prweb/api/VoiceAICaseCreation/V1/ResumeFlowfromVoiceAI
       - key: OPENAI_REASONING_MODELS
         value: gpt-5.4-mini,gpt-4o-mini
-      - key: ELEVENLABS_STT_MODEL
-        value: scribe_v2
-      - key: ELEVENLABS_TTS_MODEL
-        value: eleven_multilingual_v2
-      - key: ELEVENLABS_DEFAULT_VOICE_ID
-        value: JBFqnCBsd6RMkjVDRZzb
-      - key: ELEVENLABS_LANGUAGE
+      - key: OPENAI_TRANSCRIPTION_MODEL
+        value: gpt-4o-transcribe
+      - key: OPENAI_TRANSCRIPTION_LANGUAGE
         value: en
+      - key: OPENAI_TTS_MODEL
+        value: gpt-4o-mini-tts
+      - key: OPENAI_TTS_VOICE
+        value: nova
+      - key: OPENAI_TTS_INSTRUCTIONS
+        value: Speak as a warm young adult female support assistant. Keep the delivery natural, bright, and concise. Say Pam AI as Pam A.I., not as one fused word.

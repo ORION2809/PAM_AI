@@ -276,13 +276,13 @@ export function PamaiVoiceConsole({ sessionId }: PamaiVoiceConsoleProps) {
     if (!token) {
       setUiState('error')
       setErrorText('The secure session token is missing from the link.')
-      setStatusText('Open the session from the signed PAMAI link or regenerate a demo session.')
+      setStatusText('Open the session from the signed Pam AI link or regenerate a demo session.')
       return
     }
 
     setIsSubmitting(true)
     setUiState('booting')
-    setStatusText('Loading the secure PAMAI session...')
+    setStatusText('Loading the secure Pam AI session...')
     setLatestVoiceTranscript('')
     setErrorText('')
 
@@ -323,7 +323,7 @@ export function PamaiVoiceConsole({ sessionId }: PamaiVoiceConsoleProps) {
     setTextInput('')
     setIsSubmitting(true)
     setUiState('thinking')
-    setStatusText('Normalizing the clarification and preparing the next PAMAI prompt...')
+    setStatusText('Normalizing the clarification and preparing the next Pam AI prompt...')
     setLatestVoiceTranscript('')
     setErrorText('')
 
@@ -485,7 +485,7 @@ export function PamaiVoiceConsole({ sessionId }: PamaiVoiceConsoleProps) {
     if (!nextToken) {
       setUiState('error')
       setErrorText('The secure session token is missing from the link.')
-      setStatusText('Open the session from a signed PAMAI URL or regenerate a demo session from the launchpad.')
+      setStatusText('Open the session from a signed Pam AI URL or regenerate a demo session from the launchpad.')
       return () => {
         cleanupMicrophoneResources()
         playbackRef.current?.pause()
@@ -512,7 +512,7 @@ export function PamaiVoiceConsole({ sessionId }: PamaiVoiceConsoleProps) {
     <main className={`command-stage${consoleOpen ? ' command-stage--console-open' : ''}`}>
       <div className="command-stage__hud">
         <div className="hud-chip">
-          <span>PAMAI</span>
+          <span>Pam AI</span>
           <span>Pega duplicate-expense clarification</span>
         </div>
         <button className="hud-button" type="button" onClick={() => setConsoleOpen((current) => !current)}>
@@ -597,7 +597,7 @@ export function PamaiVoiceConsole({ sessionId }: PamaiVoiceConsoleProps) {
 
                 <div className="form-grid">
                   <label className="label">
-                    ElevenLabs voice
+                    OpenAI voice
                     <select className="select-input" value={selectedVoiceId} onChange={handleVoiceSelection}>
                       {voices.length === 0 ? <option value="">Loading voices...</option> : null}
                       {voices.map((voice) => (

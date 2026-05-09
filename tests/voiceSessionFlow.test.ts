@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { createVoiceSessionSeed } from '@/lib/schemas/voiceSession'
+import { createVoiceSessionSeed, type CreateVoiceSessionRequest } from '@/lib/schemas/voiceSession'
 import { processVoiceSessionTurn, startVoiceSession } from '@/lib/services/voiceSessionFlow'
 
-function createRequest() {
+function createRequest(overrides: Partial<CreateVoiceSessionRequest> = {}): CreateVoiceSessionRequest {
   return {
     sourceSystem: 'Pega' as const,
     caseId: 'EXP-10293',
@@ -57,48 +57,74 @@ function createRequest() {
       createdByOperator: 'System',
       tenant: 'ExpensePOC',
       locale: 'en-IN'
-    }
+    },
+    ...overrides
   }
 }
 
-function createSession() {
+function createSession(requestOverrides: Partial<CreateVoiceSessionRequest> = {}) {
   return createVoiceSessionSeed({
     sessionId: 'PAMAI-SESSION-9f8a12',
     sessionTokenHash: 'hashed-token',
-    request: createRequest(),
+    request: createRequest(requestOverrides),
     createdAt: '2026-05-06T10:00:00.000Z'
   })
 }
 
 describe('voiceSessionFlow', () => {
-  it('starts with an identity-check greeting', () => {
+  it('starts directly with a signed-link clarification prompt', () => {
     const result = startVoiceSession({
       session: createSession(),
       now: '2026-05-06T10:01:00.000Z'
     })
 
     expect(result.session.sessionStatus).toBe('STARTED')
-    expect(result.session.sessionState).toBe('IDENTITY_CHECK')
-    expect(result.assistantText).toContain('last four digits')
+    expect(result.session.sessionState).toBe('USER_CLARIFICATION')
+    expect(result.assistantText).toContain('Rahul Sharma')
+    expect(result.assistantText).toContain('Pam A.I.')
+    expect(result.assistantText).toContain('verified through this secure link')
+    expect(result.assistantText).toContain('Pega case C-382910')
+    expect(result.assistantText).toContain('two receipt entries flagged as possible duplicates')
+    expect(result.assistantText).toContain('separate valid expenses')
+    expect(result.assistantText).not.toContain('last four digits')
     expect(result.session.transcript).toHaveLength(1)
   })
 
-  it('explains the duplicate finding after the user passes identity verification', () => {
-    const startedSession = startVoiceSession({
-      session: createSession(),
+  it('uses live Pega case context in the opening greeting when provided', () => {
+    const result = startVoiceSession({
+      session: createSession({
+        caseReference: 'E-7036',
+        customer: {
+          customerId: 'manohar.lakkam@bluevoir.com',
+          fullName: 'Manohar Lakkam',
+          email: 'manohar.lakkam@bluevoir.com',
+          mobile: '+910000003210'
+        },
+        caseContextText:
+          'Pega flagged duplicate entries in the hotel stay documents and needs confirmation whether this was submitted by mistake.'
+      }),
       now: '2026-05-06T10:01:00.000Z'
-    }).session
+    })
 
-    const result = processVoiceSessionTurn({
-      session: startedSession,
-      userText: '3210',
-      inputMode: 'voice',
-      now: '2026-05-06T10:02:00.000Z'
+    expect(result.assistantText).toContain('Manohar Lakkam')
+    expect(result.assistantText).toContain('Pega case E-7036')
+    expect(result.assistantText).toContain('two receipt entries flagged as possible duplicates')
+    expect(result.assistantText).not.toContain('last four digits')
+  })
+
+  it('keeps the opening prompt concise even when verbose Pega context exists', () => {
+    const result = startVoiceSession({
+      session: createSession({
+        caseContextText:
+          'Pega flagged two hotel expenses from 14/10/2023 for the same amount of $972.76 and needs confirmation whether this was submitted by mistake.'
+      }),
+      now: '2026-05-06T10:01:00.000Z'
     })
 
     expect(result.session.sessionState).toBe('USER_CLARIFICATION')
-    expect(result.assistantText).toContain('possible duplicate expense documents')
-    expect(result.assistantText).toContain('Uber')
+    expect(result.assistantText).toContain('Pega case C-382910')
+    expect(result.assistantText).toContain('two receipt entries flagged as possible duplicates')
+    expect(result.assistantText).not.toContain('Pega flagged two hotel expenses')
   })
 
   it('collects a not-duplicate explanation and finishes after final confirmation', () => {
@@ -106,17 +132,11 @@ describe('voiceSessionFlow', () => {
       session: createSession(),
       now: '2026-05-06T10:01:00.000Z'
     }).session
-    const verifiedSession = processVoiceSessionTurn({
-      session: startedSession,
-      userText: '3210',
-      inputMode: 'voice',
-      now: '2026-05-06T10:02:00.000Z'
-    }).session
     const clarificationResult = processVoiceSessionTurn({
-      session: verifiedSession,
+      session: startedSession,
       userText: 'They are separate rides. One was from home to office and the other was from office to a client meeting.',
       inputMode: 'voice',
-      now: '2026-05-06T10:03:00.000Z'
+      now: '2026-05-06T10:02:00.000Z'
     })
 
     expect(clarificationResult.session.sessionState).toBe('CONFIRM_FINAL_ANSWER')
@@ -126,8 +146,8 @@ describe('voiceSessionFlow', () => {
       session: clarificationResult.session,
       userText: 'yes',
       inputMode: 'voice',
-      now: '2026-05-06T10:04:00.000Z',
-      voiceModel: 'eleven_multilingual_v2',
+      now: '2026-05-06T10:03:00.000Z',
+      voiceModel: 'gpt-4o-mini-tts',
       reasoningModel: 'gpt-5.4-mini'
     })
 
@@ -142,18 +162,12 @@ describe('voiceSessionFlow', () => {
       session: createSession(),
       now: '2026-05-06T10:01:00.000Z'
     }).session
-    const verifiedSession = processVoiceSessionTurn({
-      session: startedSession,
-      userText: '3210',
-      inputMode: 'voice',
-      now: '2026-05-06T10:02:00.000Z'
-    }).session
 
     const result = processVoiceSessionTurn({
-      session: verifiedSession,
+      session: startedSession,
       userText: 'I am not sure.',
       inputMode: 'voice',
-      now: '2026-05-06T10:03:00.000Z'
+      now: '2026-05-06T10:02:00.000Z'
     })
 
     expect(result.session.sessionState).toBe('FOLLOW_UP_QUESTION')

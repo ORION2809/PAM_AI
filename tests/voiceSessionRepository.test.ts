@@ -115,7 +115,7 @@ function createCompletion(): VoiceSessionCompletion {
       }
     ],
     technicalMetadata: {
-      voiceModel: 'eleven_multilingual_v2',
+      voiceModel: 'gpt-4o-mini-tts',
       reasoningModel: 'gpt-5.4-mini',
       language: 'en-IN',
       durationSeconds: 142,

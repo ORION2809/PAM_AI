@@ -1,20 +1,20 @@
-# PAMAI Voice Console
+# Pam AI Voice Console
 
-PAMAI is a full-stack Next.js demo for Pega-driven duplicate-expense clarification. Pega creates a secure voice session, PAMAI loads the case-specific duplicate findings, verifies the user with the last four mobile digits, captures the clarification, and sends a structured result back to Pega.
+Pam AI is a full-stack Next.js demo for Pega-driven duplicate-expense clarification. Pega creates a signed email link, Pam AI loads the case-specific duplicate findings, captures the clarification, and sends a structured result back to Pega.
 
 ## What It Does
 
 - Accepts a Pega session-creation payload through `POST /api/v1/voice-sessions`.
 - Generates a signed secure session URL for the voice conversation.
 - Loads duplicate-expense context into a full-screen orb-based voice UI.
-- Guides the user through identity check, duplicate clarification, explanation capture, and final confirmation.
+- Guides the user through duplicate clarification, explanation capture, and final confirmation from the signed email link.
 - Stores the session, transcript, structured result, and callback attempts in SQLite.
 - Writes audit JSON files under `data/pamai-sessions` for demo inspection and export.
 
 ## Stack
 
 - Frontend: Next.js App Router, React 19, Framer Motion
-- Speech: ElevenLabs STT and ElevenLabs TTS
+- Speech: OpenAI speech-to-text and OpenAI text-to-speech
 - Reasoning: Deterministic backend state machine with optional OpenAI model metadata
 - Session store: SQLite via `better-sqlite3`
 - Audit export: JSON files in `data/pamai-sessions`
@@ -29,7 +29,7 @@ PAMAI is a full-stack Next.js demo for Pega-driven duplicate-expense clarificati
   - `data/pamai-sessions/completed`
   - `data/pamai-sessions/callback-failed`
 
-If `PAMAI_DATA_DIR` is set, PAMAI stores the SQLite database and audit exports under that directory instead. This is the recommended production path for Render persistent disks.
+If `PAMAI_DATA_DIR` is set, Pam AI stores the SQLite database and audit exports under that directory instead. This is the recommended production path for Render persistent disks.
 
 Legacy telecom endpoints are retired and now return `410` responses that point callers to the PAMAI session APIs.
 
@@ -47,17 +47,19 @@ Preferred environment variables:
 
 ```bash
 OPENAI_API_KEY=...
-ELEVENLABS_API_KEY=...
 APP_BASE_URL=http://localhost:3000
 PAMAI_SESSION_TOKEN_SECRET=...
 PAMAI_DATA_DIR=./data
-PAMAI_MOCK_PEGA_CALLBACKS=true
+PAMAI_MOCK_PEGA_CALLBACKS=false
+PAMAI_PEGA_CALLBACK_URL=https://bluevoir-251.pegademo.com/prweb/api/VoiceAICaseCreation/V1/ResumeFlowfromVoiceAI
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
+OPENAI_TTS_MODEL=gpt-4o-mini-tts
+OPENAI_TTS_VOICE=nova
 ```
 
 Current workspace fallbacks:
 
 - `openai.txt`
-- `elevenlabs.txt`
 - `pamai-session-secret.txt` (optional)
 
 If `PAMAI_MOCK_PEGA_CALLBACKS` is not set to `false`, callback URLs ending in `.company.com` are treated as mocked demo targets and marked delivered with HTTP `202`.
@@ -107,12 +109,24 @@ Required Render environment variables:
 
 - `APP_BASE_URL`
 - `OPENAI_API_KEY`
-- `ELEVENLABS_API_KEY`
 - `PAMAI_SESSION_TOKEN_SECRET`
+- `PEGA_CLIENT_ID`
+- `PEGA_CLIENT_SECRET`
+- `PEGA_TOKEN_ENDPOINT`
+- `PEGA_EXPENSE_DATA_VIEW_URL`
+- `PAMAI_PEGA_CALLBACK_URL`
 
 For the demo workflow, keep:
 
-- `PAMAI_MOCK_PEGA_CALLBACKS=true`
+- `PAMAI_MOCK_PEGA_CALLBACKS=false` when posting completed conversations back to Pega.
+
+Optional OpenAI speech tuning:
+
+- `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe`
+- `OPENAI_TRANSCRIPTION_LANGUAGE=en`
+- `OPENAI_TTS_MODEL=gpt-4o-mini-tts`
+- `OPENAI_TTS_VOICE=nova`
+- `OPENAI_TTS_INSTRUCTIONS=Speak as a warm young adult female support assistant.`
 
 ## Primary Endpoints
 
@@ -130,11 +144,10 @@ Session access uses the signed token from the secure URL fragment or an authenti
 
 1. Open `/`.
 2. Click `Create demo session`.
-3. PAMAI loads the secure session and asks for the last four digits of the registered mobile number.
-4. Answer `3210`.
-5. Clarify that the documents are separate valid expenses.
-6. Confirm with `yes`.
-7. Verify the session moves to `COMPLETED`, the decision becomes `SEPARATE_VALID_EXPENSES`, and the callback status becomes `DELIVERED`.
+3. Pam AI loads the secure session and opens with the case-specific duplicate-expense summary.
+4. Clarify that the documents are separate valid expenses.
+5. Confirm with `yes`.
+6. Verify the session moves to `COMPLETED`, the decision becomes `SEPARATE_VALID_EXPENSES`, and the callback status becomes `DELIVERED`.
 
 ## Project Layout
 
@@ -168,7 +181,7 @@ tests/
 ## Important Notes
 
 - The backend owns the session state machine and structured completion format.
-- PAMAI does not approve or reject expenses. It only captures and returns the clarification.
+- Pam AI does not approve or reject expenses. It only captures and returns the clarification.
 - `GET /api/health` now validates PAMAI storage readiness and reports the active storage paths.
 - Signed session URLs are required for the secure session page.
 - Request limits and payload-size checks are enabled on the demo endpoints.

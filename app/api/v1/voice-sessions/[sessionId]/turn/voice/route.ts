@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { resolveVoiceProfile, synthesizeSpeech, transcribeAudio } from '@/lib/services/providers/elevenLabsSpeech'
+import { resolveVoiceProfile, synthesizeSpeech, transcribeAudio } from '@/lib/services/providers/openAiSpeech'
 import { RateLimitError, assertRateLimit, getRequestIdentifier } from '@/lib/services/rateLimit'
 import { VoiceSessionHttpError, processManagedVoiceSessionTurn } from '@/lib/services/voiceSessionService'
 

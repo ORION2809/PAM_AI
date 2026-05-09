@@ -16,7 +16,7 @@ function formatTimestamp(value: string): string {
 
 function getSpeakerLabel(speaker: TranscriptEntry['speaker']): string {
   if (speaker === 'agent') {
-    return 'PAMAI'
+    return 'Pam AI'
   }
 
   if (speaker === 'user') {

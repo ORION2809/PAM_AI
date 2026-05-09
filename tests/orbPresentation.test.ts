@@ -7,7 +7,7 @@ function createBaseSession(): VoiceSessionContext {
   return {
     sessionId: 'session-1',
     sessionStatus: 'READY',
-    sessionState: 'IDENTITY_CHECK',
+    sessionState: 'USER_CLARIFICATION',
     caseId: 'CASE-20260505-0001',
     caseReference: 'EXP-1001',
     assignmentId: 'ASSIGN-1001',
@@ -82,7 +82,7 @@ function createCompletion(): VoiceSessionCompletion {
     },
     transcript: [],
     technicalMetadata: {
-      voiceModel: 'eleven_multilingual_v2',
+      voiceModel: 'gpt-4o-mini-tts',
       reasoningModel: 'deterministic-flow',
       language: 'en-US',
       durationSeconds: 58,
@@ -117,7 +117,7 @@ describe('getPamaiOrbPresentation', () => {
     })
 
     expect(presentation.state).toBe('booting')
-    expect(presentation.title).toContain('secure PAMAI link')
+    expect(presentation.title).toContain('secure Pam AI link')
     expect(presentation.hint).toContain('secure session')
   })
 

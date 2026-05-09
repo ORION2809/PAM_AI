@@ -412,7 +412,7 @@ export function createVoiceSessionRepository(input: {
     },
     markStarted(markInput) {
       const sessionId = sanitizeSessionId(markInput.sessionId)
-      updateSessionStatus.run('STARTED', markInput.sessionState ?? 'IDENTITY_CHECK', markInput.startedAt, null, sessionId)
+      updateSessionStatus.run('STARTED', markInput.sessionState ?? 'USER_CLARIFICATION', markInput.startedAt, null, sessionId)
     },
     saveCompletion(completion) {
       const validatedCompletion = voiceSessionCompletionSchema.parse(completion)

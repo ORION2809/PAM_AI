@@ -857,15 +857,21 @@ textarea {
 .orb-landing__hint-block {
   display: grid;
   gap: 10px;
-  justify-items: center;
+  justify-items: stretch;
+  width: min(92vw, 640px);
 }
 
 .orb-landing__hint {
-  max-width: 54ch;
+  max-width: none;
   margin: 0;
-  text-align: center;
+  padding: 10px 14px;
+  border: 1px solid rgba(121, 242, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(5, 18, 24, 0.52);
+  text-align: left;
   color: rgba(169, 193, 201, 0.92);
-  line-height: 1.6;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .orb-landing__transcript {
@@ -1225,11 +1231,20 @@ textarea {
 }
 
 .orb-hud {
-  width: min(100%, 520px);
+  width: min(92vw, 640px);
   display: grid;
-  gap: 6px;
-  justify-items: center;
-  text-align: center;
+  gap: 8px;
+  justify-items: stretch;
+  padding: 18px 20px;
+  border: 1px solid rgba(121, 242, 255, 0.14);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(6, 22, 30, 0.86), rgba(5, 14, 21, 0.72)),
+    radial-gradient(circle at top right, rgba(var(--orb-primary), 0.12), transparent 42%);
+  box-shadow:
+    0 18px 54px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  text-align: left;
 }
 
 .orb-hud__status {
@@ -1241,23 +1256,23 @@ textarea {
 
 .orb-hud__title {
   font-family: var(--font-display);
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
-  letter-spacing: 0.08em;
-  line-height: 1.2;
+  font-size: clamp(1rem, 1.55vw, 1.28rem);
+  letter-spacing: 0.06em;
+  line-height: 1.28;
 }
 
 .orb-hud__description {
-  max-width: 48ch;
+  max-width: none;
   margin: 0;
-  color: rgba(185, 204, 211, 0.82);
-  font-size: 0.92rem;
-  line-height: 1.6;
+  color: rgba(214, 232, 238, 0.88);
+  font-size: 0.96rem;
+  line-height: 1.55;
 }
 
 .orb-hud__telemetry {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
   margin-top: 4px;
 }

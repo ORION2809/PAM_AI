@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { resolveVoiceProfile, synthesizeSpeech } from '@/lib/services/providers/elevenLabsSpeech'
+import { resolveVoiceProfile, synthesizeSpeech } from '@/lib/services/providers/openAiSpeech'
 import { RateLimitError, assertRateLimit, getRequestIdentifier } from '@/lib/services/rateLimit'
 import { VoiceSessionHttpError, startManagedVoiceSession } from '@/lib/services/voiceSessionService'
 

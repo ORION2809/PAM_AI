@@ -30,7 +30,7 @@ export function SessionSnapshot({ session, completion, callbackStatus }: Session
     <section className="panel case-panel">
       <h2>Session Snapshot</h2>
       <p className="section-copy">
-        Pega stays the system of record. This panel reflects only the secure PAMAI session context, transcript state,
+        Pega stays the system of record. This panel reflects only the secure Pam AI session context, transcript state,
         and callback outcome.
       </p>
       <div className="case-grid">
@@ -50,7 +50,7 @@ export function SessionSnapshot({ session, completion, callbackStatus }: Session
             <>
               <strong>{session.customer.fullName}</strong>
               <p>{session.customer.emailMasked}</p>
-              <p>Mobile ending {session.customer.mobileLastFour}</p>
+              <p>Verified through signed email link</p>
             </>
           ) : (
             <p>Secure user context not loaded yet.</p>

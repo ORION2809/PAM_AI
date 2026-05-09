@@ -1,11 +1,10 @@
 import {
   createVoiceSessionSeed,
-  type DuplicateFinding,
   type TranscriptEntry,
   type VoiceSessionCompletion,
   type VoiceSessionRecord
 } from '@/lib/schemas/voiceSession'
-import { normalizeMobileNumber, parseResolutionAnswer } from '@/lib/utils/text'
+import { parseResolutionAnswer } from '@/lib/utils/text'
 
 type SupportedUserResponse =
   | 'DUPLICATE_CONFIRMED'
@@ -77,11 +76,7 @@ function withAssistantReply(input: {
   }
 }
 
-function getLastFourDigits(mobile: string): string {
-  return mobile.replace(/\D+/g, '').slice(-4)
-}
-
-function buildFindingSummary(finding: DuplicateFinding): string {
+function buildFindingSummary(finding: VoiceSessionRecord['duplicateFindings'][number]): string {
   const expenseDate = finding.expenseRecords[0]?.expenseDate ?? 'the same date'
   const amount = finding.expenseRecords[0]?.amount ?? 0
   const currency = finding.expenseRecords[0]?.currency ?? 'INR'
@@ -89,6 +84,31 @@ function buildFindingSummary(finding: DuplicateFinding): string {
   const formattedCurrency = currency === 'INR' ? `₹${amount.toLocaleString('en-IN')}` : `${currency} ${amount}`
 
   return `We detected possible duplicate expense documents for ${formattedCurrency} on ${expenseDate} at ${merchant}. Are these actual duplicates or separate valid expenses?`
+}
+
+function formatRecordCount(count: number): string {
+  if (count === 1) {
+    return 'one'
+  }
+
+  if (count === 2) {
+    return 'two'
+  }
+
+  if (count === 3) {
+    return 'three'
+  }
+
+  return `${count}`
+}
+
+function buildShortCaseSummary(session: VoiceSessionRecord): string {
+  const records = session.duplicateFindings[0]?.expenseRecords ?? []
+  const recordCount = Math.max(records.length, 1)
+  const firstRecord = records[0]
+  const documentType = firstRecord?.documentType?.trim().toLowerCase() || 'expense'
+
+  return `${formatRecordCount(recordCount)} ${documentType} ${recordCount === 1 ? 'entry' : 'entries'} flagged as possible duplicates`
 }
 
 function classifyUserResponse(text: string): ClassificationResult {
@@ -258,18 +278,19 @@ export function startVoiceSession(input: {
   session: VoiceSessionRecord
   now: string
 }): VoiceSessionTurnResult {
-  const greetingText = `Hello ${input.session.request.customer.fullName}. I am PAMAI, your expense review assistant. Before we continue, please confirm the last four digits of your registered mobile number.`
+  const caseSummary = buildShortCaseSummary(input.session)
+  const greetingText = `Hi ${input.session.request.customer.fullName}, this is Pam A.I. You're verified through this secure link. I found Pega case ${input.session.request.caseReference}: ${caseSummary}. Are these duplicates, or separate valid expenses?`
 
   return withAssistantReply({
     session: {
       ...input.session,
       sessionStatus: 'STARTED',
-      sessionState: 'IDENTITY_CHECK',
+      sessionState: 'USER_CLARIFICATION',
       startedAt: input.now
     },
     assistantText: greetingText,
     now: input.now,
-    nextState: 'IDENTITY_CHECK',
+    nextState: 'USER_CLARIFICATION',
     nextStatus: 'STARTED'
   })
 }
@@ -300,28 +321,7 @@ export function processVoiceSessionTurn(input: {
   }
 
   switch (sessionWithUserMessage.sessionState) {
-    case 'IDENTITY_CHECK': {
-      const providedDigits = normalizeMobileNumber(trimmedText).slice(-4)
-      const expectedDigits = getLastFourDigits(sessionWithUserMessage.request.customer.mobile)
-
-      if (providedDigits !== expectedDigits) {
-        return withAssistantReply({
-          session: sessionWithUserMessage,
-          assistantText: 'That does not match our records. Please confirm the last four digits of your registered mobile number.',
-          now: input.now,
-          nextState: 'IDENTITY_CHECK'
-        })
-      }
-
-      const findingSummary = buildFindingSummary(sessionWithUserMessage.duplicateFindings[0])
-
-      return withAssistantReply({
-        session: sessionWithUserMessage,
-        assistantText: `Thank you. I found your expense review case ${sessionWithUserMessage.request.caseReference}. ${findingSummary}`,
-        now: input.now,
-        nextState: 'USER_CLARIFICATION'
-      })
-    }
+    case 'IDENTITY_CHECK':
     case 'USER_CLARIFICATION': {
       const classification = classifyUserResponse(trimmedText)
 
@@ -412,7 +412,7 @@ export function processVoiceSessionTurn(input: {
         classification,
         explanation,
         completedAt: input.now,
-        voiceModel: input.voiceModel ?? 'eleven_multilingual_v2',
+        voiceModel: input.voiceModel ?? 'gpt-4o-mini-tts',
         reasoningModel: input.reasoningModel ?? 'deterministic-fallback'
       })
       const finalReply = withAssistantReply({
@@ -435,7 +435,7 @@ export function processVoiceSessionTurn(input: {
     case 'COMPLETED': {
       return withAssistantReply({
         session: sessionWithUserMessage,
-        assistantText: 'This PAMAI session is already complete. The clarification has already been prepared for the expense review team.',
+        assistantText: 'This Pam AI session is already complete. The clarification has already been prepared for the expense review team.',
         now: input.now,
         nextState: 'COMPLETED',
         nextStatus: 'COMPLETED',
@@ -450,7 +450,7 @@ export function processVoiceSessionTurn(input: {
         session: sessionWithUserMessage,
         assistantText: 'The session is being prepared. Please wait a moment and try again.',
         now: input.now,
-        nextState: 'IDENTITY_CHECK'
+        nextState: 'USER_CLARIFICATION'
       })
     }
   }

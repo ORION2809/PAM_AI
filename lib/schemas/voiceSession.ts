@@ -105,6 +105,7 @@ export const createVoiceSessionRequestSchema = z.object({
   currentStage: z.string().min(1),
   currentStep: z.string().min(1),
   conversationPurpose: conversationPurposeSchema,
+  caseContextText: z.string().min(1).nullable().optional(),
   customer: customerSchema,
   duplicateFindings: z.array(duplicateFindingSchema).min(1),
   callback: callbackConfigSchema,

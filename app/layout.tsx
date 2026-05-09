@@ -16,7 +16,7 @@ const bodyFont = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: 'PAMAI Voice Console',
+  title: 'Pam AI Voice Console',
   description: 'Secure voice clarification flow for Pega duplicate-expense review cases, with structured callback delivery.'
 }
 

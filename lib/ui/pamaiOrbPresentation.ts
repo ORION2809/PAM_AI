@@ -55,7 +55,7 @@ export function getPamaiOrbPresentation(input: {
     return {
       state: 'booting',
       status: 'LOADING SESSION',
-      title: 'Validating the secure PAMAI link',
+      title: 'Validating the secure Pam AI link',
       description: 'Checking token integrity, loading duplicate findings, and preparing the voice channel.',
       detailLines: ['VERIFYING SESSION TOKEN...', 'LOADING DUPLICATE CONTEXT...'],
       hint: 'The orb will activate as soon as the secure session is ready.'
@@ -66,10 +66,10 @@ export function getPamaiOrbPresentation(input: {
     return {
       state: 'speaking',
       status: 'AGENT SPEAKING',
-      title: input.session ? `PAMAI speaking to ${input.session.customer.fullName}` : 'Delivering the session guidance',
+      title: input.session ? `Pam AI speaking with ${input.session.customer.fullName}` : 'Delivering the session guidance',
       description: input.statusText,
       detailLines: [],
-      hint: 'The current assistant response is being played through ElevenLabs TTS.'
+      hint: 'AI-generated OpenAI voice is playing. Open the console for transcript and controls.'
     }
   }
 
@@ -81,7 +81,7 @@ export function getPamaiOrbPresentation(input: {
       description:
         input.completion?.agentSummary.summary ||
         input.session?.duplicateFindings[0]?.reason ||
-        'PAMAI is deciding how to classify the user response without making policy decisions.',
+        'Pam AI is deciding how to classify the user response without making policy decisions.',
       detailLines: ['MATCHING USER DECISION...', 'PREPARING PEGA HANDOFF...'],
       hint: 'The backend state machine owns the flow while the response is normalized.'
     }
@@ -92,7 +92,7 @@ export function getPamaiOrbPresentation(input: {
       state: input.audioLevel > 0.22 ? 'user-speaking' : 'listening',
       status: input.audioLevel > 0.22 ? 'USER SPEAKING' : 'LISTENING',
       title: input.audioLevel > 0.22 ? 'Capturing the live clarification' : 'Waiting for the next spoken turn',
-      description: getLatestStatus(input.statusText, 'PAMAI is listening for the user response.'),
+      description: getLatestStatus(input.statusText, 'Pam AI is listening for the user response.'),
       detailLines: [],
       hint: 'Stop speaking and the turn will submit automatically. You can also tap again to finish.'
     }
@@ -115,7 +115,7 @@ export function getPamaiOrbPresentation(input: {
       state: 'confirmation',
       status: 'FINAL CONFIRMATION',
       title: 'Waiting for submission approval',
-      description: getLatestStatus(input.statusText, 'PAMAI is waiting for the final yes or no before sending the clarification.'),
+      description: getLatestStatus(input.statusText, 'Pam AI is waiting for the final yes or no before sending the clarification.'),
       detailLines: [],
       hint: 'Answer yes to submit the clarification or no to restate it.'
     }
@@ -127,7 +127,7 @@ export function getPamaiOrbPresentation(input: {
     title: input.session ? `Secure session for ${input.session.customer.fullName}` : 'Awaiting secure session',
     description: getLatestStatus(
       input.statusText,
-      input.session?.duplicateFindings[0]?.reason || 'Tap the orb to begin the next PAMAI voice turn.'
+      input.session?.duplicateFindings[0]?.reason || 'Tap the orb to begin the next Pam AI voice turn.'
     ),
     detailLines: input.session?.caseReference ? [`CASE ${input.session.caseReference}`] : [],
     hint: 'Tap the orb to capture the next voice turn or open the console for the text fallback.'

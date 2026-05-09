@@ -13,7 +13,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       windowMs: 60_000
     })
     const payload = await request.json()
-    const session = createVoiceSession({ request: payload })
+    const session = createVoiceSession({ request: payload, baseUrl: request.nextUrl.origin })
 
     return NextResponse.json(session, { status: 201 })
   } catch (error) {

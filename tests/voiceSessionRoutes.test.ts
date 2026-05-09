@@ -1,16 +1,16 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/services/providers/elevenLabsSpeech', () => ({
+vi.mock('@/lib/services/providers/openAiSpeech', () => ({
   resolveVoiceProfile: vi.fn(async () => ({
     voiceProfile: {
-      voiceId: 'voice-test',
+      voiceId: 'nova',
       name: 'Test Voice',
-      modelId: 'eleven_multilingual_v2'
+      modelId: 'gpt-4o-mini-tts'
     },
     availableVoices: [
       {
-        voiceId: 'voice-test',
+        voiceId: 'nova',
         name: 'Test Voice',
         description: 'Mock voice for route tests.',
         labels: {}
@@ -90,6 +90,7 @@ describe('voice session routes', () => {
     expect(created.response.status).toBe(201)
     expect(created.body.status).toBe('READY')
     expect(created.body.conversationUrl).toContain('#token=')
+    expect(created.body.conversationUrl).toMatch(/^http:\/\/localhost\/voice\/session\//)
 
     const unauthorized = await getVoiceSessionRoute(
       new NextRequest(`http://localhost/api/v1/voice-sessions/${created.sessionId}`, {
@@ -163,41 +164,18 @@ describe('voice session routes', () => {
       audio: { mimeType: string }
     }
 
-    expect(started.session.sessionState).toBe('IDENTITY_CHECK')
-    expect(started.assistantText).toContain('last four digits')
+    expect(started.session.sessionState).toBe('USER_CLARIFICATION')
+    expect(started.assistantText).toContain('Pega case')
+    expect(started.assistantText).toContain('verified through this secure link')
+    expect(started.assistantText).not.toContain('last four digits')
     expect(started.audio.mimeType).toBe('audio/mpeg')
-
-    const verifiedResponse = await textTurnRoute(
-      new NextRequest(`http://localhost/api/v1/voice-sessions/${created.sessionId}/turn/text`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-forwarded-for': '10.2.0.3',
-          'x-session-token': created.token
-        },
-        body: JSON.stringify({ text: '3210' })
-      }),
-      {
-        params: Promise.resolve({ sessionId: created.sessionId })
-      }
-    )
-
-    expect(verifiedResponse.status).toBe(200)
-
-    const verified = (await verifiedResponse.json()) as {
-      session: { sessionState: string }
-      completion: null
-    }
-
-    expect(verified.session.sessionState).toBe('USER_CLARIFICATION')
-    expect(verified.completion).toBeNull()
 
     const clarificationResponse = await textTurnRoute(
       new NextRequest(`http://localhost/api/v1/voice-sessions/${created.sessionId}/turn/text`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-forwarded-for': '10.2.0.4',
+          'x-forwarded-for': '10.2.0.3',
           'x-session-token': created.token
         },
         body: JSON.stringify({
@@ -224,7 +202,7 @@ describe('voice session routes', () => {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-forwarded-for': '10.2.0.5',
+          'x-forwarded-for': '10.2.0.4',
           'x-session-token': created.token
         },
         body: JSON.stringify({ text: 'yes' })
@@ -251,7 +229,7 @@ describe('voice session routes', () => {
     const callbackStatusResponse = await getCallbackStatusRoute(
       new NextRequest(`http://localhost/api/v1/voice-sessions/${created.sessionId}/callback-status`, {
         headers: {
-          'x-forwarded-for': '10.2.0.6',
+          'x-forwarded-for': '10.2.0.5',
           'x-session-token': created.token
         }
       }),

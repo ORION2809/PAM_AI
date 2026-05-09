@@ -46,9 +46,9 @@ function assertSessionAccess(session: VoiceSessionRecord | null, token: string, 
   return session
 }
 
-function buildConversationUrl(sessionId: string, token: string): string {
+function buildConversationUrl(sessionId: string, token: string, baseUrl?: string): string {
   const env = getServerEnv()
-  const target = new URL(`/voice/session/${sessionId}`, env.appBaseUrl)
+  const target = new URL(`/voice/session/${sessionId}`, baseUrl ?? env.appBaseUrl)
   target.hash = `token=${encodeURIComponent(token)}`
   return target.toString()
 }
@@ -88,7 +88,7 @@ async function finalizeCompletion(completion: VoiceSessionCompletion): Promise<P
   return voiceSessionRepository.recordCallbackAttempt(callbackAttempt)
 }
 
-export function createVoiceSession(input: { request: unknown; now?: string }): {
+export function createVoiceSession(input: { request: unknown; now?: string; baseUrl?: string }): {
   sessionId: string
   status: 'READY'
   conversationUrl: string
@@ -114,7 +114,7 @@ export function createVoiceSession(input: { request: unknown; now?: string }): {
   return {
     sessionId,
     status: 'READY',
-    conversationUrl: buildConversationUrl(sessionId, token),
+    conversationUrl: buildConversationUrl(sessionId, token, input.baseUrl),
     expiresAt: request.expiresAt
   }
 }
