@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { getServerEnv } from '@/lib/env'
 import { RateLimitError, assertRateLimit, getRequestIdentifier } from '@/lib/services/rateLimit'
+import { getPublicRequestOrigin } from '@/lib/utils/network'
 import { VoiceSessionHttpError, createVoiceSession } from '@/lib/services/voiceSessionService'
 
 export const runtime = 'nodejs'
@@ -12,8 +14,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       limit: 24,
       windowMs: 60_000
     })
+    const env = getServerEnv()
     const payload = await request.json()
-    const session = createVoiceSession({ request: payload, baseUrl: request.nextUrl.origin })
+    const session = createVoiceSession({ request: payload, baseUrl: getPublicRequestOrigin(request, env.appBaseUrl) })
 
     return NextResponse.json(session, { status: 201 })
   } catch (error) {

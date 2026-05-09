@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { resetServerEnvCache } from '@/lib/env'
 
 vi.mock('@/lib/services/providers/openAiSpeech', () => ({
   resolveVoiceProfile: vi.fn(async () => ({
@@ -82,6 +84,13 @@ async function createSession(ipAddress: string) {
 describe('voice session routes', () => {
   beforeEach(() => {
     globalStore.__voiceCsrRateLimitStore?.clear()
+    process.env.APP_BASE_URL = 'https://pam-ai-4gv6.onrender.com'
+    resetServerEnvCache()
+  })
+
+  afterEach(() => {
+    delete process.env.APP_BASE_URL
+    resetServerEnvCache()
   })
 
   it('creates a secure session URL and enforces a token on session fetch', async () => {
@@ -136,6 +145,29 @@ describe('voice session routes', () => {
     expect(body.session.customer.mobileLastFour).toBe('3210')
     expect(body.completion).toBeNull()
     expect(body.callbackStatus).toBeNull()
+  })
+
+  it('uses the forwarded public origin when the runtime request origin is internal', async () => {
+    const response = await createVoiceSessionRoute(
+      new NextRequest('http://localhost:10000/api/v1/voice-sessions', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-for': '10.1.0.9',
+          'x-forwarded-host': 'PAM-AI-4GV6.ONRENDER.COM',
+          'x-forwarded-proto': 'HTTPS'
+        },
+        body: JSON.stringify(createDemoVoiceSessionRequest())
+      })
+    )
+
+    expect(response.status).toBe(201)
+
+    const body = (await response.json()) as {
+      conversationUrl: string
+    }
+
+    expect(body.conversationUrl).toMatch(/^https:\/\/pam-ai-4gv6\.onrender\.com\/voice\/session\//)
   })
 
   it('runs the start and text-turn routes through a complete clarification flow', async () => {

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { getServerEnv } from '@/lib/env'
 import { PegaCaseServiceError, createVoiceSessionRequestFromPegaCase } from '@/lib/services/pegaCaseService'
 import { RateLimitError, assertRateLimit, getRequestIdentifier } from '@/lib/services/rateLimit'
+import { getPublicRequestOrigin } from '@/lib/utils/network'
 import { createVoiceSession } from '@/lib/services/voiceSessionService'
 
 export const runtime = 'nodejs'
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       createVoiceSession({
         request: voiceSessionRequest,
-        baseUrl: request.nextUrl.origin
+        baseUrl: getPublicRequestOrigin(request, env.appBaseUrl)
       }),
       { status: 201 }
     )

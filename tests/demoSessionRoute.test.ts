@@ -72,6 +72,7 @@ describe('demo session route', () => {
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockReset()
 
+    process.env.APP_BASE_URL = 'https://pam-ai-4gv6.onrender.com'
     process.env.PEGA_CLIENT_ID = 'test-client'
     process.env.PEGA_CLIENT_SECRET = 'test-secret'
     process.env.PEGA_TOKEN_ENDPOINT = 'https://bluevoir-251.pegademo.com/prweb/PRRestService/oauth2/v1/token'
@@ -84,6 +85,7 @@ describe('demo session route', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    delete process.env.APP_BASE_URL
     resetServerEnvCache()
   })
 
@@ -146,6 +148,76 @@ describe('demo session route', () => {
 
     expect(sessionBody.session.caseId).toBe('E-7036')
     expect(sessionBody.session.caseReference).toBe('E-7036')
+  })
+
+  it('uses the forwarded public origin when the runtime request origin is internal', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'pega-access-token', token_type: 'bearer', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(pegaCase), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+
+    const response = await createDemoSessionRoute(
+      new NextRequest('http://localhost:10000/api/demo/session?caseId=E-7036', {
+        method: 'POST',
+        headers: {
+          'x-forwarded-for': '10.3.0.9',
+          'x-forwarded-host': 'PAM-AI-4GV6.ONRENDER.COM',
+          'x-forwarded-proto': 'HTTPS'
+        }
+      })
+    )
+
+    expect(response.status).toBe(201)
+
+    const body = (await response.json()) as {
+      conversationUrl: string
+    }
+
+    expect(body.conversationUrl).toMatch(/^https:\/\/pam-ai-4gv6\.onrender\.com\/voice\/session\//)
+  })
+
+  it('ignores an untrusted forwarded host and falls back to the configured public origin', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'pega-access-token', token_type: 'bearer', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(pegaCase), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      )
+
+    const response = await createDemoSessionRoute(
+      new NextRequest('http://localhost:10000/api/demo/session?caseId=E-7036', {
+        method: 'POST',
+        headers: {
+          'x-forwarded-for': '10.3.0.10',
+          'x-forwarded-host': 'evil.example.com',
+          'x-forwarded-proto': 'https'
+        }
+      })
+    )
+
+    expect(response.status).toBe(201)
+
+    const body = (await response.json()) as {
+      conversationUrl: string
+    }
+
+    expect(body.conversationUrl).toMatch(/^https:\/\/pam-ai-4gv6\.onrender\.com\/voice\/session\//)
   })
 
   it('creates a session when the URL uses the short numeric case id from the email link', async () => {
